@@ -12,30 +12,34 @@ import {
 
 export async function decodeTransactions(
   signedTransactions: JWSTransaction[],
-  rootCertFingerprint?: string
+  rootCertFingerprint?: string,
+  skipValidation?: boolean
 ): Promise<JWSTransactionDecodedPayload[]> {
-  return Promise.all(signedTransactions.map(transaction => decodeJWS(transaction, rootCertFingerprint)))
+  return Promise.all(signedTransactions.map(transaction => decodeJWS(transaction, rootCertFingerprint, skipValidation)))
 }
 
 export async function decodeTransaction(
   transaction: JWSTransaction,
-  rootCertFingerprint?: string
+  rootCertFingerprint?: string,
+  skipValidation?: boolean
 ): Promise<JWSTransactionDecodedPayload> {
-  return decodeJWS(transaction, rootCertFingerprint)
+  return decodeJWS(transaction, rootCertFingerprint, skipValidation)
 }
 
 export async function decodeRenewalInfo(
   info: JWSRenewalInfo,
-  rootCertFingerprint?: string
+  rootCertFingerprint?: string,
+  skipValidation?: boolean
 ): Promise<JWSRenewalInfoDecodedPayload> {
-  return decodeJWS(info, rootCertFingerprint)
+  return decodeJWS(info, rootCertFingerprint, skipValidation)
 }
 
 export async function decodeNotificationPayload(
   payload: string,
-  rootCertFingerprint?: string
+  rootCertFingerprint?: string,
+  skipValidation?: boolean
 ): Promise<DecodedNotificationPayload> {
-  return decodeJWS(payload, rootCertFingerprint)
+  return decodeJWS(payload, rootCertFingerprint, skipValidation)
 }
 
 /**
@@ -44,7 +48,7 @@ export async function decodeNotificationPayload(
  * @param token JWS token
  * @param rootCertFingerprint Root certificate to validate against. Defaults to Apple's G3 CA but can be overriden for testing purposes.
  */
-async function decodeJWS(token: string, rootCertFingerprint: string = APPLE_ROOT_CA_G3_FINGERPRINT): Promise<any> {
+async function decodeJWS(token: string, rootCertFingerprint: string = APPLE_ROOT_CA_G3_FINGERPRINT, skipValidation: boolean = false): Promise<any> {
   // Extracts the key used to sign the JWS from the header of the token
   const getKey: jose.CompactVerifyGetKey = async (protectedHeader, _token) => {
     // RC 7515 stipulates that the key used to sign the JWS must be the first in the chain.
@@ -53,7 +57,9 @@ async function decodeJWS(token: string, rootCertFingerprint: string = APPLE_ROOT
     // jose will not import the certificate unless it is in a proper PKCS8 format.
     const certs = protectedHeader.x5c?.map(c => `-----BEGIN CERTIFICATE-----\n${c}\n-----END CERTIFICATE-----`) ?? []
 
-    validateCertificates(certs, rootCertFingerprint)
+    if (!skipValidation) {
+      validateCertificates(certs, rootCertFingerprint)
+    }
 
     return jose.importX509(certs[0], "ES256")
   }
